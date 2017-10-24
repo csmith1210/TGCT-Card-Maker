@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 
@@ -34,7 +35,7 @@ namespace TGCT_Card_Maker
         static public string platUser;
         static public string playerID;
         static public DataTable dt = new DataTable();
-        static public DateTime seasonStart = DateTime.Parse("10/16/2017");
+        static public DateTime seasonStart = new DateTime(2017, 10, 16);
 
         //END: Variables
 
@@ -317,7 +318,7 @@ namespace TGCT_Card_Maker
             }
             //for the remaining tournaments, add their respective info to their own rows in the datatable
             for (int i = 0; i < rs.Count; i += 9)
-                Program.dt.Rows.Add(DateTime.Parse(rs[i]), curTour, rs[i + 2]);
+                Program.dt.Rows.Add(DateTime.ParseExact(rs[i], "MM/dd/yyyy", CultureInfo.InvariantCulture), curTour, rs[i + 2]);
         }
     }
 }
