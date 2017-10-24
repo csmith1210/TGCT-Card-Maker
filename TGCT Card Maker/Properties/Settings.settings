@@ -1,0 +1,27 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="TGCT_Card_Maker.Properties" GeneratedClassName="Settings">
+  <Profiles />
+  <Settings>
+    <Setting Name="playerName" Type="System.String" Scope="User">
+      <Value Profile="(Default)">John Smith</Value>
+    </Setting>
+    <Setting Name="memSince" Type="System.String" Scope="User">
+      <Value Profile="(Default)">May 2017</Value>
+    </Setting>
+    <Setting Name="playerCountry" Type="System.String" Scope="User">
+      <Value Profile="(Default)">United States</Value>
+    </Setting>
+    <Setting Name="playerID" Type="System.String" Scope="User">
+      <Value Profile="(Default)">1</Value>
+    </Setting>
+    <Setting Name="plaform" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Steam: user</Value>
+    </Setting>
+    <Setting Name="firstTime" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="prevTournament" Type="System.DateTime" Scope="User">
+      <Value Profile="(Default)">1990-01-01</Value>
+    </Setting>
+  </Settings>
+</SettingsFile>
