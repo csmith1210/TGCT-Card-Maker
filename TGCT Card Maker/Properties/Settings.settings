@@ -20,8 +20,5 @@
     <Setting Name="firstTime" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>
     </Setting>
-    <Setting Name="prevTournament" Type="System.DateTime" Scope="User">
-      <Value Profile="(Default)">1990-01-01</Value>
-    </Setting>
   </Settings>
 </SettingsFile>

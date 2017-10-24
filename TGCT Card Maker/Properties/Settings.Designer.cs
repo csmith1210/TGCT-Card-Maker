@@ -94,17 +94,5 @@ namespace TGCT_Card_Maker.Properties {
                 this["firstTime"] = value;
             }
         }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("1990-01-01")]
-        public global::System.DateTime prevTournament {
-            get {
-                return ((global::System.DateTime)(this["prevTournament"]));
-            }
-            set {
-                this["prevTournament"] = value;
-            }
-        }
     }
 }
