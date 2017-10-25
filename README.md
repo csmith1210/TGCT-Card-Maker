@@ -2,8 +2,8 @@
 ### Description:
 This program automatically fetches stats from TGCTours.com for a player and creates an image that can be used for forum signatures or to show off stats.
 ### Libraries Required:
-* [ironwebscraper](http://ironsoftware.com/csharp/webscraper/)
-  * Package used to scrape the season and player profile page for various stats.
+* [HtmlAgilityPack](https://github.com/zzzprojects/html-agility-pack/)
+  * Package used to scrape the season and overview player pages for various stats.
 * [Costura.Fody](https://github.com/Fody/Costura)
   * Package used to combine the ironwebscraper DLL into the final binary.
 ### How to use the program:
@@ -16,5 +16,4 @@ This program automatically fetches stats from TGCTours.com for a player and crea
 ### The Template:
 ![template](https://github.com/csmith1210/TGCT-Card-Maker/raw/master/TGCT%20Card%20Maker/Resources/template.png)
 ### Acknowledgements:
-* [ironwebscraper team](http://ironsoftware.com/csharp/webscraper/team/)
-* Costura.Fody uses the MIT License which is the same license used by this repository. Please see the included LICENSE.md file.
+**HtmlAgilityPack** and **Costura.Fody** use the MIT License which is the same license used by this repository. Please see the included LICENSE.md file.
