@@ -111,6 +111,7 @@ namespace TGCT_Card_Maker
                 Console.WriteLine("Country: " + country);
                 Console.WriteLine("Member since: " + memSince);
                 Console.WriteLine(platform);
+                Console.WriteLine("TGCTours Player ID: " + playerID);
                 Console.Write("Is this information correct? (y/n): ");
                 string corr = Console.ReadLine().ToLower();
                 if (corr.Equals("y"))
