@@ -1,4 +1,4 @@
-﻿using IronWebScraper;
+﻿using HtmlAgilityPack;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -7,7 +7,6 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Globalization;
-using System.IO;
 using System.Linq;
 
 namespace TGCT_Card_Maker
@@ -16,26 +15,28 @@ namespace TGCT_Card_Maker
     {
         //START: Variables
 
-        static public bool firstTime;
-        static public int NumEvents = 0;
-        static public int wins = 0;
-        static public int seconds = 0;
-        static public int top10 = 0;
-        static public int top25 = 0;
-        static public List<int> CutPercents = new List<int>();
-        static public double CutPercent = 0;
-        static public int money = 0;
-        static public int moneyRank = 0;
-        static public int wgr = 0;
-        static public string playerName;
-        static public string memSince;
-        static public string tour;
-        static public string country;
-        static public string platform;
-        static public string platUser;
-        static public string playerID;
-        static public DataTable dt = new DataTable();
-        static public DateTime seasonStart = new DateTime(2017, 10, 16);
+        static private bool firstTime;
+        static private int NumEvents = 0;
+        static private int wins = 0;
+        static private int seconds = 0;
+        static private int top10 = 0;
+        static private int top25 = 0;
+        static private List<int> CutPercents = new List<int>();
+        static private double CutPercent = 0;
+        static private int money = 0;
+        static private int moneyRank = 0;
+        static private int wgr = 0;
+        static private string playerName;
+        static private string memSince;
+        static private string tour;
+        static private string country;
+        static private string platform;
+        static private string platUser;
+        static private string playerID;
+        static private DataTable dt = new DataTable();
+        static private DateTime seasonStart = new DateTime(2017, 10, 16);
+        static private HtmlWeb web = new HtmlWeb();
+        static private HtmlDocument doc = new HtmlDocument();
 
         //END: Variables
 
@@ -44,14 +45,177 @@ namespace TGCT_Card_Maker
             Load();
             if (firstTime)
                 Setup();
+            Console.WriteLine("Scraping tgctours.com...");
             Scrape();
+            Console.WriteLine("Making image...");
             MakeImage();
 
-            //delete the folder ironwebscraper creates
-            if (Directory.Exists("Scrape\\"))
-                Directory.Delete("Scrape\\");
-
             Process.Start("tgctcard.png"); //opens the newly created image for viewing
+        }
+
+        private static void Load()
+        {
+            //Load string variables from the settings file for use in MakeImage()
+            firstTime = TGCT_Card_Maker.Properties.Settings.Default.firstTime;
+            playerName = TGCT_Card_Maker.Properties.Settings.Default.playerName;
+            playerID = TGCT_Card_Maker.Properties.Settings.Default.playerID;
+            country = TGCT_Card_Maker.Properties.Settings.Default.playerCountry;
+            memSince = TGCT_Card_Maker.Properties.Settings.Default.memSince;
+            platform = TGCT_Card_Maker.Properties.Settings.Default.plaform;
+        }
+
+        private static void Save()
+        {
+            //Save the variables in the settings file for subsequent program executions
+            TGCT_Card_Maker.Properties.Settings.Default.playerName = playerName;
+            TGCT_Card_Maker.Properties.Settings.Default.playerID = playerID;
+            TGCT_Card_Maker.Properties.Settings.Default.playerCountry = country;
+            TGCT_Card_Maker.Properties.Settings.Default.memSince = memSince;
+            TGCT_Card_Maker.Properties.Settings.Default.plaform = platform;
+            TGCT_Card_Maker.Properties.Settings.Default.firstTime = false;
+            TGCT_Card_Maker.Properties.Settings.Default.Save();
+        }
+
+        private static void Setup()
+        {
+            bool valid = false;
+            while (!valid) //while loop to let user re-enter data if mistake was made
+            {
+                Console.Clear();
+                Console.WriteLine("Initial Setup");
+                Console.Write("Enter player's tour name (e.g. John Smith): ");
+                playerName = Console.ReadLine();
+                Console.Write("Enter player's country (e.g. United States): ");
+                country = Console.ReadLine();
+                Console.Write("Enter the player's join date (e.g. May 2017): ");
+                memSince = Console.ReadLine();
+                Console.WriteLine("Choose your platform:\n\t1. Steam\n\t2. Xbox one\n\t3. PS4");
+                Console.Write("Enter the number for your platform (e.g. 1): ");
+                platform = Console.ReadLine();
+                Console.Write("Enter you username on the above platform: ");
+                platUser = Console.ReadLine();
+                Console.Write("Finally, enter the TGCTours player id: ");
+                playerID = Console.ReadLine();
+                Console.Clear();
+
+                if (platform.Equals("1"))
+                    platform = "STEAM:" + platUser;
+                else if (platform.Equals("2"))
+                    platform = "XBOX ONE:" + platUser;
+                else if (platform.Equals("3"))
+                    platform = "PS4:" + platUser;
+                else
+                    platform = "Invalid choice";
+
+                Console.WriteLine("Player Name: " + playerName);
+                Console.WriteLine("Country: " + country);
+                Console.WriteLine("Member since: " + memSince);
+                Console.WriteLine(platform);
+                Console.Write("Is this information correct? (y/n): ");
+                string corr = Console.ReadLine().ToLower();
+                if (corr.Equals("y"))
+                    valid = true; //if the information is correct then exit while loop
+            }
+            Console.Clear();
+            Save(); //save variables to the settings so this doesn't have to be done again
+        }
+
+        private static void Scrape()
+        {
+            //prepare datatable with appropriate columns for next webscraper object
+            dt.Columns.Add("Date", typeof(DateTime));
+            dt.Columns.Add("League", typeof(string));
+            dt.Columns.Add("Place", typeof(string));
+            Console.WriteLine("Grabbing the overview page info...");
+            GetMains(); //grab info from player overview page
+            Console.WriteLine("Grabbing the season pages info...");
+            GetStats(); //grab stats and tournaments from season page
+        }
+
+        private static void GetMains()
+        {
+            //Grab the player's current tour, money rank, and WGR from the Overview page
+            //HTML element parsing works using XPaths
+            string url = "http://tgctours.com/player/OverView/" + playerID;
+            doc = web.Load(url);
+            var overviews = doc.DocumentNode.SelectNodes("//div[@class='box']/h2");
+            moneyRank = int.Parse(overviews[1].InnerText);
+            wgr = int.Parse(overviews[3].InnerText.Split(' ')[0]);
+            tour = doc.DocumentNode.SelectNodes("//section[@class='content clearfix']/h1")[0].InnerText.Split(' ')[1];
+        }
+
+        private static void GetStats()
+        {
+            //create list of urls for every main tour
+            string[] tours = new string[] { "1", "2", "4", "10", "11", "12", "13", "14", "15", "18" };
+            List<string> urls = new List<string>();
+            string baseUrl = "http://tgctours.com/player/season/" + playerID + "?tourId=";
+            foreach (string tour in tours)
+                urls.Add(baseUrl + tour + "&season=");
+            foreach (string url in urls) //scrape each url in the list
+            {
+                doc = web.Load(url); //load the webpage
+                string curTour = doc.DocumentNode.SelectNodes("//h1")[1].InnerText.Split(null).ToList()[0]; //get the tour url currently being examined
+                List<int> cats = new List<int>();
+                //loop through each td element in the summary table (top table) of the seasons page and add the elements to the cats list for later use
+                foreach (var item in doc.DocumentNode.SelectNodes("//table[@id='summary']/tbody/tr/td"))
+                {
+                    string strTitle = item.InnerText;
+                    if (strTitle.Equals("--"))
+                        cats.Add(0);
+                    else
+                    {
+                        char[] nums = strTitle.Where(Char.IsDigit).ToArray();
+                        string number = new string(nums);
+                        cats.Add(int.Parse(number));
+                    }
+                }
+                //add the scraped element values to accumulate stats among tours (i.e. for when players are promoted/demoted)
+                wins += cats[1];
+                seconds += cats[2];
+                top10 += cats[4];
+                top25 += cats[5];
+                CutPercents.Add(cats[6]);
+                money += cats[7];
+                List<string> rs = new List<string>();
+                //loop through each td element of the results table (bottom table) of the seasons page and add the elements to the rs list for later use
+                var items = doc.DocumentNode.SelectNodes("//table[@id='results']/tbody/tr/td");
+                if (items == null) //make sure results table isn't empty, if it is then skip to next tour
+                    continue;
+                foreach (var item in items)
+                    rs.Add(item.InnerText);
+                //get the amount of tournaments in the rs list where the player did not play/finish
+                var indexes = Enumerable.Range(0, rs.Count)
+                    .Where(i => rs[i] == "Did Not Play")
+                    .ToList().Count;
+                //loop through the rs list and remove the elements associated with the did not play rounds
+                for (int i = 0; i < indexes; i++)
+                {
+                    int index = rs.IndexOf("Did Not Play");
+                    rs.RemoveAt(index);
+                    rs.RemoveAt(index - 1);
+                    rs.RemoveAt(index - 2);
+                }
+                //for the remaining tournaments, add their respective info to their own rows in the datatable
+                for (int i = 0; i < rs.Count; i += 9)
+                    dt.Rows.Add(DateTime.ParseExact(rs[i], "MM/dd/yyyy", CultureInfo.InvariantCulture), curTour, rs[i + 2]);
+            }
+            //remove all cut percentages from the seasons pages equal to 0 then average the remaining values
+            CutPercents.RemoveAll(i => i == 0);
+            CutPercent = Math.Round(CutPercents.Average(), 2);
+            //sort the datatable by descending date
+            dt.DefaultView.Sort = "Date desc";
+            dt = dt.DefaultView.ToTable();
+            //add a column to hold the week number and add a value for each row
+            dt.Columns.Add("Week");
+            foreach (DataRow row in dt.Rows)
+            {
+                DateTime date = row.Field<DateTime>("Date");
+                var span = date.Subtract(seasonStart);
+                int week = 1 + (span.Days / 7); //Week one has span of 0 + 1 = 1
+                row["Week"] = "WK " + week.ToString(); //add calculated week number to the current row
+            }
+            NumEvents = dt.Rows.Count; //set the number of events equal to the amount of tournaments found for the current year
         }
 
         private static void MakeImage()
@@ -108,7 +272,17 @@ namespace TGCT_Card_Maker
             templateGraphic.DrawString(top10.ToString(), catFont, Brushes.White, new Rectangle(187, 175, 61, 18), catsFormat);
             templateGraphic.DrawString(top25.ToString(), catFont, Brushes.White, new Rectangle(249, 175, 61, 18), catsFormat);
             templateGraphic.DrawString(CutPercent.ToString() + "%", catFont, Brushes.White, new Rectangle(311, 175, 61, 18), catsFormat);
-            templateGraphic.DrawString("$" + money.ToString(), catFont, Brushes.White, new Rectangle(373, 175, 61, 18), catsFormat);
+            if (money <= 999999)
+            {
+                string moneyComma = string.Format(CultureInfo.InvariantCulture, "{0:N0}", money); //force commans in thousands place regardless of globalization settings
+                templateGraphic.DrawString("$" + moneyComma, catFont, Brushes.White, new Rectangle(373, 175, 61, 18), catsFormat);
+            }
+            else
+            {
+                double mil = (double)money / 1000000;
+                string moneyDec = string.Format(CultureInfo.InvariantCulture, "{0:0.000}", Math.Truncate(mil * 1000) / 1000); //force decimal place regardless of globalization
+                templateGraphic.DrawString("$" + moneyDec + "M", catFont, Brushes.White, new Rectangle(373, 175, 61, 18), catsFormat);
+            }
             templateGraphic.DrawString(moneyRank.ToString(), catFont, Brushes.White, new Rectangle(435, 175, 61, 18), catsFormat);
             templateGraphic.DrawString(wgr.ToString(), catFont, Brushes.White, new Rectangle(0, 232, 61, 18), catsFormat);
 
@@ -126,199 +300,6 @@ namespace TGCT_Card_Maker
             //Dispose of the image objects to clear memory
             templateGraphic.Dispose();
             templateBitmap.Dispose();
-        }
-
-        private static void Setup()
-        {
-            bool valid = false;
-            while (!valid) //while loop to let user re-enter data if mistake was made
-            {
-                Console.Clear();
-                Console.WriteLine("Initial Setup");
-                Console.Write("Enter player's tour name (e.g. John Smith): ");
-                playerName = Console.ReadLine();
-                Console.Write("Enter player's country (e.g. United States): ");
-                country = Console.ReadLine();
-                Console.Write("Enter the player's join date (e.g. May 2017): ");
-                memSince = Console.ReadLine();
-                Console.WriteLine("Choose your platform:\n\t1. Steam\n\t2. Xbox one\n\t3. PS4");
-                Console.Write("Enter the number for your platform (e.g. 1): ");
-                platform = Console.ReadLine();
-                Console.Write("Enter you username on the above platform: ");
-                platUser = Console.ReadLine();
-                Console.Write("Finally, enter the TGCTours player id: ");
-                playerID = Console.ReadLine();
-                Console.Clear();
-
-                if (platform.Equals("1"))
-                    platform = "STEAM:" + platUser;
-                else if (platform.Equals("2"))
-                    platform = "XBOX ONE:" + platUser;
-                else if (platform.Equals("3"))
-                    platform = "PS4:" + platUser;
-                else
-                    platform = "Invalid choice";
-
-                Console.WriteLine("Player Name: " + playerName);
-                Console.WriteLine("Country: " + country);
-                Console.WriteLine("Member since: " + memSince);
-                Console.WriteLine(platform);
-                Console.Write("Is this information correct? (y/n): ");
-                string corr = Console.ReadLine().ToLower();
-                if (corr.Equals("y"))
-                    valid = true; //if the information is correct then exit while loop
-            }
-            Console.Clear();
-            Save(); //save variables to the settings so this doesn't have to be done again
-        }
-
-        private static void Scrape()
-        {
-            Console.WriteLine("Scraping tgctours.com...");
-            //Create and execute webscraper object to grab info from player overview page
-            var mainScraper = new TGCScraper("mains");
-            mainScraper.Start();
-            //prepare datatable with appropriate columns for next webscraper object
-            dt.Columns.Add("Date", typeof(DateTime));
-            dt.Columns.Add("League", typeof(string));
-            dt.Columns.Add("Place", typeof(string));
-            //create and execute webscraper object to grab stats and tournaments from season page
-            var catScraper = new TGCScraper("cats");
-            catScraper.Start();
-            //remove all cut percentages from the seasons pages equal to 0 then average the remaining values
-            CutPercents.RemoveAll(i => i == 0);
-            CutPercent = Math.Round(CutPercents.Average(), 2);
-            //sort the datatable by descending date
-            dt.DefaultView.Sort = "Date desc";
-            dt = dt.DefaultView.ToTable();
-            //add a column to hold the week number and add a value for each row
-            dt.Columns.Add("Week");
-            foreach (DataRow row in dt.Rows)
-            {
-                DateTime date = row.Field<DateTime>("Date");
-                var span = date.Subtract(seasonStart);
-                int week = 1 + (span.Days / 7); //Week one has span of 0 + 1 = 1
-                row["Week"] = "WK " + week.ToString(); //add calculated week number to the current row
-            }
-            NumEvents = dt.Rows.Count; //set the number of events equal to the amount of tournaments found for the current year
-            Console.Clear();
-        }
-
-        private static void Load()
-        {
-            //Load string variables from the settings file for use in MakeImage()
-            firstTime = TGCT_Card_Maker.Properties.Settings.Default.firstTime;
-            playerName = TGCT_Card_Maker.Properties.Settings.Default.playerName;
-            playerID = TGCT_Card_Maker.Properties.Settings.Default.playerID;
-            country = TGCT_Card_Maker.Properties.Settings.Default.playerCountry;
-            memSince = TGCT_Card_Maker.Properties.Settings.Default.memSince;
-            platform = TGCT_Card_Maker.Properties.Settings.Default.plaform;
-        }
-
-        private static void Save()
-        {
-            //Save the variables in the settings file for subsequent program executions
-            TGCT_Card_Maker.Properties.Settings.Default.playerName = playerName;
-            TGCT_Card_Maker.Properties.Settings.Default.playerID = playerID;
-            TGCT_Card_Maker.Properties.Settings.Default.playerCountry = country;
-            TGCT_Card_Maker.Properties.Settings.Default.memSince = memSince;
-            TGCT_Card_Maker.Properties.Settings.Default.plaform = platform;
-            TGCT_Card_Maker.Properties.Settings.Default.firstTime = false;
-            TGCT_Card_Maker.Properties.Settings.Default.Save();
-        }
-    }
-
-    internal class TGCScraper : WebScraper
-    {
-        public override void Init()
-        {
-            //set log level to none (but this still results in 1 inital output line to the console)
-            this.LoggingLevel = WebScraper.LogLevel.None;
-        }
-
-        public TGCScraper(string type)
-        {
-            if (type.Equals("cats")) //get the stats from seasons page
-            {
-                this.MaxHttpConnectionLimit = 10; //use more threads for simultaneous results
-                //create list of urls for every main tour
-                string[] tours = new string[] { "1", "2", "4", "10", "11", "12", "13", "14", "15", "18" };
-                List<string> urls = new List<string>();
-                string baseUrl = "http://tgctours.com/player/season/" + Program.playerID + "?tourId=";
-                foreach (string tour in tours)
-                    urls.Add(baseUrl + tour + "&season=");
-                //scrape each url in the list using the Parse() method
-                this.Request(urls, Parse);
-            }
-            else if (type.Equals("mains")) //get other info from the overview page
-            {
-                this.MaxHttpConnectionLimit = 1; //only checking one url here, just need one thread
-                string baseUrl = "http://tgctours.com/player/OverView/" + Program.playerID;
-                this.Request(baseUrl, GetMains); //scrape url using the GetMains() method
-            }
-        }
-
-        public void GetMains(Response response)
-        {
-            //Grab the player's current tour, money rank, and WGR from the Overview page
-            //See the ironwebscraper site for how the HTML element parsing works
-            Program.tour = response.Css("section.content.clearfix h1")[0].InnerTextClean.Split(' ')[1];
-            Program.moneyRank = int.Parse(response.Css("div.box h2")[1].InnerTextClean);
-            Program.wgr = int.Parse(response.Css("div.box h2")[3].InnerTextClean.Split(' ')[0]);
-        }
-
-        public override void Parse(Response response)
-        {
-            //This method gets the stats for every major tour
-            //get the tour url currently being examined
-            string curTour = response.Css("h1")[1].TextContentClean;
-            List<string> curTours = curTour.Split(null).ToList();
-            curTour = curTours[0];
-            List<int> cats = new List<int>();
-            //loop through each td element in the summary table (top table) of the seasons page
-            //add the elements to the cats list for later use
-            foreach (var item in response.GetElementById("summary").Css("td"))
-            {
-                string strTitle = item.TextContentClean;
-                if (strTitle == "--")
-                    cats.Add(0);
-                else
-                {
-                    char[] nums = strTitle.Where(Char.IsDigit).ToArray();
-                    string number = new string(nums);
-                    cats.Add(int.Parse(number));
-                }
-            }
-            //add the scraped element values to accumulate stats among tours (i.e. for when players are promoted/demoted)
-            Program.wins += cats[1];
-            Program.seconds += cats[2];
-            Program.top10 += cats[4];
-            Program.top25 += cats[5];
-            Program.CutPercents.Add(cats[6]);
-            Program.money += cats[7];
-            List<string> rs = new List<string>();
-            //loop through each td element of the results table (bottom table) of the seasons page
-            //add the elements to the rs list (results list) for later use
-            foreach (var item in response.GetElementById("results").Css("td"))
-            {
-                string strTitle = item.TextContentClean;
-                rs.Add(strTitle);
-            }
-            //get the amount of tournaments in the rs list where the player did not play/finish
-            var indexes = Enumerable.Range(0, rs.Count)
-             .Where(i => rs[i] == "Did Not Play")
-             .ToList().Count;
-            //loop through the rs list and remove the elements associated with the did not play rounds
-            for (int i = 0; i < indexes; i++)
-            {
-                int index = rs.IndexOf("Did Not Play");
-                rs.RemoveAt(index);
-                rs.RemoveAt(index - 1);
-                rs.RemoveAt(index - 2);
-            }
-            //for the remaining tournaments, add their respective info to their own rows in the datatable
-            for (int i = 0; i < rs.Count; i += 9)
-                Program.dt.Rows.Add(DateTime.ParseExact(rs[i], "MM/dd/yyyy", CultureInfo.InvariantCulture), curTour, rs[i + 2]);
         }
     }
 }
