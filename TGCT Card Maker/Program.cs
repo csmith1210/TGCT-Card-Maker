@@ -153,22 +153,26 @@ namespace TGCT_Card_Maker
             string baseUrl = "http://tgctours.com/player/season/" + playerID + "?tourId=";
             foreach (string tour in tours)
                 urls.Add(baseUrl + tour + "&season=");
+            int cutTracker = 0; //int used to keep track of all cut percents that are actually real (i.e. not "--")
             foreach (string url in urls) //scrape each url in the list
             {
                 doc = web.Load(url); //load the webpage
                 string curTour = doc.DocumentNode.SelectNodes("//h1")[1].InnerText.Split(null).ToList()[0]; //get the tour url currently being examined
                 List<int> cats = new List<int>();
                 //loop through each td element in the summary table (top table) of the seasons page and add the elements to the cats list for later use
-                foreach (var item in doc.DocumentNode.SelectNodes("//table[@id='summary']/tbody/tr/td"))
+                var nodes = doc.DocumentNode.SelectNodes("//table[@id='summary']/tbody/tr/td");
+                for (int i = 0; i < nodes.Count; i++)
                 {
-                    string strTitle = item.InnerText;
+                    string strTitle = nodes[i].InnerText;
                     if (strTitle.Equals("--"))
                         cats.Add(0);
                     else
                     {
-                        char[] nums = strTitle.Where(Char.IsDigit).ToArray();
-                        string number = new string(nums);
-                        cats.Add(int.Parse(number));
+                        if (i == 6) //cut percent is always 6th position
+                            cutTracker++; //increase the tracker if the cut percent is actually a number
+                        char[] nums = strTitle.Where(Char.IsDigit).ToArray(); //save only the characters that are numbers
+                        string number = new string(nums); //make the character array back into a string
+                        cats.Add(int.Parse(number)); //parse the new string of only numbers into an int
                     }
                 }
                 //add the scraped element values to accumulate stats among tours (i.e. for when players are promoted/demoted)
@@ -201,9 +205,7 @@ namespace TGCT_Card_Maker
                 for (int i = 0; i < rs.Count; i += 9)
                     dt.Rows.Add(DateTime.ParseExact(rs[i], "MM/dd/yyyy", CultureInfo.InvariantCulture), curTour, rs[i + 2]);
             }
-            //remove all cut percentages from the seasons pages equal to 0 then average the remaining values
-            CutPercents.RemoveAll(i => i == 0);
-            CutPercent = Math.Round(CutPercents.Average(), 2);
+            CutPercent = Math.Round((double)CutPercents.Sum() / (double)cutTracker, 2);
             //sort the datatable by descending date
             dt.DefaultView.Sort = "Date desc";
             dt = dt.DefaultView.ToTable();
